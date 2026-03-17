@@ -1,40 +1,45 @@
 import subprocess
 import os
-import matplotlib.pyplot as plt
+import time
 
-# Range PER yang akan diuji
-pers = [0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0]
-results = []
+# 1. Pastikan folder results ada
+if not os.path.exists("results"):
+    print("Membuat folder results...")
+    os.makedirs("results")
 
-# Bersihkan hasil lama
-if os.path.exists("results/output.txt"):
-    os.remove("results/output.txt")
+pers = [0.01, 0.1, 0.5] # Test dengan 3 titik dulu
+output_path = "results/output.txt"
+
+# 2. Hapus file lama agar tidak tercampur data lama
+if os.path.exists(output_path):
+    os.remove(output_path)
 
 for per in pers:
-    print(f"Running simulation for PER={per}...")
-    # Jalankan docker-compose dengan environment variable PER
+    print(f"--- Menjalankan Simulasi PER: {per} ---")
+    
+    # Set environment variable untuk Docker
     env = os.environ.copy()
     env["PER"] = str(per)
-    subprocess.run(["docker-compose", "up", "--abort-on-container-exit"], env=env)
+    
+    # Jalankan Docker Compose
+    # Gunakan 'docker-compose' (dengan strip) jika versi lama, 
+    # atau 'docker', 'compose' jika versi baru.
+    process = subprocess.run(["docker-compose", "up", "--build", "--abort-on-container-exit"], env=env)
+    
+    if process.returncode != 0:
+        print(f"Peringatan: Docker Compose keluar dengan error pada PER {per}")
 
-# Baca hasil
-per_data = []
-thr_data = []
-with open("results/output.txt", "r") as f:
-    for line in f:
-        p, t = line.strip().split(",")
-        per_data.append(float(p))
-        # Normalisasi throughput (misal dibagi max throughput yang didapat)
-        thr_data.append(float(t))
+# 3. BERI JEDA agar OS sempat sinkronisasi file dari Docker
+time.sleep(2)
 
-# Normalisasi sederhana agar S berada di antara 0-1
-max_t = max(thr_data)
-s_data = [t/max_t for t in thr_data]
-
-# Plotting
-plt.plot(per_data, s_data, 'bo-')
-plt.xscale('log')
-plt.xlabel('Packet Error Ratio')
-plt.ylabel('Normalized Throughput (S)')
-plt.title('Data Nyata dari Infrastruktur Docker ARQ')
-plt.show()
+# 4. CEK SEBELUM BUKA (Baris yang tadi error)
+if not os.path.exists(output_path):
+    print(f"\nERROR KRITIS: File '{output_path}' tidak ditemukan!")
+    print("Kemungkinan penyebab:")
+    print("1. Volume mapping di docker-compose.yml salah.")
+    print("2. Script sender.py di dalam Docker gagal menulis ke folder /results.")
+    print("3. Kontainer sender mati sebelum sempat menulis file.")
+else:
+    with open(output_path, "r") as f:
+        print("\nBerhasil membaca data:")
+        print(f.read())
