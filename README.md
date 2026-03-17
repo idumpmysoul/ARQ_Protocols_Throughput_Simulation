@@ -39,7 +39,6 @@ Data mentah hasil simulasi disimpan di folder `results/output.txt` dalam format 
 - **Capacity**: 6 Mbps.
 - **Latency**: 1ms.
 - **Target Packets**: 1000 sukses per titik data.
-```
 
 ---
 
