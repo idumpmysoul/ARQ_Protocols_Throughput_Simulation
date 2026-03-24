@@ -2,43 +2,44 @@ import socket
 import time
 import os
 
-PER = float(os.getenv(PER, 0.1))
+PER = float(os.getenv('PER', 0.1))
 PACKETS_TO_SEND = 1000
 WINDOW_SIZE = 5
-TIMEOUT = 0.05 # 50ms timeout
+TIMEOUT = 0.1 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind((0.0.0.0, 5000))
+sock.bind(('0.0.0.0', 5000))
 sock.settimeout(TIMEOUT)
 
 base = 0
 next_seq_num = 0
 acked = [False] * PACKETS_TO_SEND
-
 start_time = time.time()
 
+print(f"Sender: Simulasi dimulai untuk PER={PER}")
+
 while base < PACKETS_TO_SEND:
-    # Kirim paket dalam window
     while next_seq_num < base + WINDOW_SIZE and next_seq_num < PACKETS_TO_SEND:
-        sock.sendto(str(next_seq_num).encode(), (channel, 7000))
-        next_seq_num += 1
+        try:
+            sock.sendto(str(next_seq_num).encode(), ('channel', 7000))
+            next_seq_num += 1
+        except: break
     
     try:
-        # Tunggu ACK
         data, addr = sock.recvfrom(4096)
-        ack_id = int(data.decode().split(":")[1])
-        if ack_id >= base:
-            acked[ack_id] = True
-            # Geser window
-            while base < PACKETS_TO_SEND and acked[base]:
-                base += 1
+        msg = data.decode()
+        if "ACK:" in msg:
+            ack_id = int(msg.split(":")[1])
+            if ack_id >= base and ack_id < PACKETS_TO_SEND:
+                acked[ack_id] = True
+                while base < PACKETS_TO_SEND and acked[base]:
+                    base += 1
     except socket.timeout:
-        # Jika timeout, kirim ulang paket base saja (Selective Reject)
         next_seq_num = base 
 
-end_time = time.time()
-throughput = (PACKETS_TO_SEND) / (end_time - start_time)
+duration = time.time() - start_time
+throughput = PACKETS_TO_SEND / duration
 
-# Simpan hasil ke file yang bisa dibaca Orchestrator
-with open("/results/output.txt", "a") as f:
-    f.write(f"{PER},{throughput}\n")
+# Jangan pakai 'with open', cukup print dengan tanda khusus agar mudah dicari
+print(f"FINAL_RESULT:{PER}:{throughput}")
+print("Sender: Simulasi selesai.")

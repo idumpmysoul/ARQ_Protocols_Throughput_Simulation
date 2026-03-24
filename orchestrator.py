@@ -2,44 +2,45 @@ import subprocess
 import os
 import time
 
-# 1. Pastikan folder results ada
-if not os.path.exists("results"):
-    print("Membuat folder results...")
-    os.makedirs("results")
+# List untuk menampung data sementara
+all_data = []
 
-pers = [0.01, 0.1, 0.5] # Test dengan 3 titik dulu
+pers = [0.01, 0.1, 0.5]
 output_path = "results/output.txt"
 
-# 2. Hapus file lama agar tidak tercampur data lama
-if os.path.exists(output_path):
-    os.remove(output_path)
+# Pastikan folder results ada
+if not os.path.exists("results"):
+    os.makedirs("results")
 
 for per in pers:
-    print(f"--- Menjalankan Simulasi PER: {per} ---")
-    
-    # Set environment variable untuk Docker
+    print(f"\n--- Menjalankan Simulasi PER: {per} ---")
     env = os.environ.copy()
     env["PER"] = str(per)
     
-    # Jalankan Docker Compose
-    # Gunakan 'docker-compose' (dengan strip) jika versi lama, 
-    # atau 'docker', 'compose' jika versi baru.
-    process = subprocess.run(["docker-compose", "up", "--build", "--abort-on-container-exit"], env=env)
+    # Menjalankan Docker dan menangkap output terminalnya
+    cmd = ["docker", "compose", "up", "--build", "--exit-code-from", "sender"]
     
-    if process.returncode != 0:
-        print(f"Peringatan: Docker Compose keluar dengan error pada PER {per}")
+    # subprocess.Popen memungkinkan kita membaca log secara real-time
+    process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
-# 3. BERI JEDA agar OS sempat sinkronisasi file dari Docker
-time.sleep(2)
+    for line in process.stdout:
+        print(line, end="") # Tetap tampilkan log di terminal kamu
+        if "FINAL_RESULT:" in line:
+            # Jika menemukan tanda khusus, ambil datanya
+            # Format: FINAL_RESULT:PER:THROUGHPUT
+            data_part = line.split("FINAL_RESULT:")[1].strip()
+            per_val, thr_val = data_part.split(":")
+            all_data.append(f"{per_val},{thr_val}")
 
-# 4. CEK SEBELUM BUKA (Baris yang tadi error)
-if not os.path.exists(output_path):
-    print(f"\nERROR KRITIS: File '{output_path}' tidak ditemukan!")
-    print("Kemungkinan penyebab:")
-    print("1. Volume mapping di docker-compose.yml salah.")
-    print("2. Script sender.py di dalam Docker gagal menulis ke folder /results.")
-    print("3. Kontainer sender mati sebelum sempat menulis file.")
-else:
-    with open(output_path, "r") as f:
-        print("\nBerhasil membaca data:")
-        print(f.read())
+    process.wait()
+
+# Setelah semua simulasi selesai, simpan SEMUA data ke file
+print("\n--- Menyimpan Hasil Akhir ---")
+with open(output_path, "w") as f:
+    for entry in all_data:
+        f.write(entry + "\n")
+
+print(f"File '{output_path}' berhasil dibuat dengan {len(all_data)} data point.")
+
+# Panggil fungsi plotting (jika ada di file yang sama atau import)
+# ... kode plotting kamu di sini ...

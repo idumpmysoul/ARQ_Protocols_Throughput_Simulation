@@ -1,27 +1,18 @@
-version: '3.8'
 services:
   channel:
-    image: python:3.9-slim
-    volumes: [ "./channel:/app" ]
-    working_dir: /app
-    command: python channel.py
+    build: ./channel
     environment:
       - PER=${PER}
 
   receiver:
-    image: python:3.9-slim
-    volumes: [ "./receiver:/app" ]
-    working_dir: /app
-    command: python receiver.py
+    build: ./receiver
 
   sender:
-    image: python:3.9-slim
-    volumes: 
-      - "./sender:/app"
-      - "./results:/results"
-    working_dir: /app
-    command: python sender.py
+    build: ./sender
+    user: root
     environment:
       - PER=${PER}
+    volumes:
+      - "./results:/results"
     depends_on:
       - channel
