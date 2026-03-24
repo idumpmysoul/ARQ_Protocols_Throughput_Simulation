@@ -2,17 +2,20 @@ services:
   channel:
     build: ./channel
     environment:
-      - PER=${PER}
+      - PER=${PER:-0.1}
+      - DELAY=${DELAY:-0.001}
 
   receiver:
     build: ./receiver
+    depends_on:
+      - channel
 
   sender:
     build: ./sender
-    user: root
     environment:
-      - PER=${PER}
+      - PER=${PER:-0.1}
     volumes:
       - "./results:/results"
     depends_on:
       - channel
+      - receiver
